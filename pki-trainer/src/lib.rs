@@ -2,7 +2,7 @@ pub mod env;
 
 use anyhow::{Context, Result};
 use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+
 use std::process::{Command, Stdio};
 use std::thread;
 
@@ -15,7 +15,11 @@ pub fn train_lora(dataset_path: &str) -> Result<String> {
 
     let python_exe = env::get_python_exe(&current_dir);
     let script_path = current_dir.join("pki-trainer").join("python_scripts").join("train.py");
-    let output_dir = current_dir.join("lora_adapter_out");
+    let output_base = current_dir.join("output");
+    if !output_base.exists() {
+        std::fs::create_dir_all(&output_base).context("Failed to create output directory")?;
+    }
+    let output_dir = output_base.join("lora_adapter_out");
 
     println!("[pki-trainer] Spawning Python training process...");
     

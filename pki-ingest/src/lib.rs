@@ -3,8 +3,9 @@ pub mod parser;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AlpacaQa {
@@ -28,11 +29,16 @@ pub fn ingest_file(path: &str) -> Result<String> {
     // 3. Generate QA pairs (Mocking the LLM generator for now)
     println!("[pki-ingest] Generating QA pairs with local model (Mocking)...");
     
-    let output_path = "mock_qa_dataset.jsonl";
+    let data_dir = Path::new("data");
+    if !data_dir.exists() {
+        fs::create_dir_all(data_dir).context("Failed to create data directory")?;
+    }
+    let output_path = data_dir.join("mock_qa_dataset.jsonl");
+
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(output_path)
+        .open(&output_path)
         .context("Failed to open output jsonl file")?;
 
     let mut qa_count = 0;
@@ -51,7 +57,7 @@ pub fn ingest_file(path: &str) -> Result<String> {
         }
     }
 
-    println!("[pki-ingest] Successfully generated {} QA pairs and saved to `{}`", qa_count, output_path);
+    println!("[pki-ingest] Successfully generated {} QA pairs and saved to `{}`", qa_count, output_path.display());
     
-    Ok(output_path.to_string())
+    Ok(output_path.to_string_lossy().to_string())
 }

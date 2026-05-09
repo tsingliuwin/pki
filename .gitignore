@@ -7,3 +7,9 @@
 # MSVC Windows build artifacts
 *.pdb
 .claude
+
+# Data and training outputs
+data/
+output/
+*.jsonl
+.venv

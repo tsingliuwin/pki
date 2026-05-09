@@ -48,7 +48,7 @@ async fn download_file(url: &str, local_path: &Path, filename: &str) -> Result<(
 }
 
 /// Returns (GGUF Path, Tokenizer Path)
-pub async fn get_or_download_model(model_name: &str) -> Result<(PathBuf, PathBuf)> {
+pub async fn get_or_download_model(_model_name: &str) -> Result<(PathBuf, PathBuf)> {
     let pki_dir = dirs::home_dir()
         .context("Could not find home directory")?
         .join(".pki")
@@ -56,19 +56,21 @@ pub async fn get_or_download_model(model_name: &str) -> Result<(PathBuf, PathBuf
 
     std::fs::create_dir_all(&pki_dir).context("Failed to create models directory")?;
 
-    // Hardcode fallback mapping
-    let repo = "qwen/Qwen2.5-0.5B-Instruct-GGUF";
-    let gguf_filename = "qwen2.5-0.5b-instruct-q4_k_m.gguf";
+    // Use the requested model repo
+    let repo = "Qwen/Qwen3-0.6B-GGUF";
+    let base_repo = repo.replace("-GGUF", ""); // Base repo usually contains tokenizer.json
+    let gguf_filename = "Qwen3-0.6B-Q8_0.gguf"; // Requested model filename
     let tokenizer_filename = "tokenizer.json";
     
-    // We fetch tokenizer from the non-GGUF repo because GGUF repos sometimes don't have it exposed easily.
-    // Actually Qwen2.5 GGUF repos often just have the `.gguf`. We fetch tokenizer from `qwen/Qwen2.5-0.5B-Instruct`.
-    let gguf_url = format!("https://modelscope.cn/api/v1/models/{}/repo?Revision=master&FilePath={}", repo, gguf_filename);
-    let tokenizer_url = "https://modelscope.cn/api/v1/models/qwen/Qwen2.5-0.5B-Instruct/repo?Revision=master&FilePath=tokenizer.json";
+    // We fetch from HuggingFace as it rarely gives 403 for public repos compared to ModelScope API
+    let gguf_url = format!("https://huggingface.co/{}/resolve/main/{}", repo, gguf_filename);
+    let tokenizer_url = format!("https://huggingface.co/{}/resolve/main/{}", base_repo, tokenizer_filename);
 
     let gguf_path = pki_dir.join(gguf_filename);
     let tokenizer_path = pki_dir.join(tokenizer_filename);
 
+    // If the files already exist, it will skip downloading.
+    // If you don't want to download, you can place the actual files in `~/.pki/models/` manually.
     download_file(&gguf_url, &gguf_path, gguf_filename).await?;
     download_file(&tokenizer_url, &tokenizer_path, tokenizer_filename).await?;
 
