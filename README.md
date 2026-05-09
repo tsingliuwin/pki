@@ -1,37 +1,40 @@
 # PKI: Personal Knowledge Internalization
 
-**Hybrid High-Performance Knowledge Internalization System**
+**Build your second brain with lightweight local models.**
 
-PKI is a project dedicated to exploring true knowledge internalization through model weight evolution. **Warning: This is a heavyweight engineering task.**
+PKI is a high-performance system designed to transform your documents into the internal weights of a tiny LLM (Qwen3-0.6B). It focuses on **weight evolution** rather than prompt-based context injection (RAG).
 
-## 🚦 Brutal Reality Check
+## 🚀 The PKI Philosophy
+> "One-time offline training cost, lifetime local intelligence."
 
-Before running this project, you must understand the hardware and time costs associated with "Internalization" (Fine-tuning):
+PKI distills your documents into high-quality QA pairs and "burns" that knowledge into a model via LoRA fine-tuning. The result is a single GGUF file that *knows* your data, running entirely on your CPU.
 
-1.  **Training is NOT Inference:** While inference on a quantized Qwen3-0.6B takes <800MB RAM, **Training** (Fine-tuning) starts from BF16/FP32 weights and requires **10GB+ RAM/VRAM**.
-2.  **No GGUF Fine-tuning:** You cannot train on GGUF files. Period. Training starts from raw Safetensors.
-3.  **CPU Training is Extremely Slow:** Running a LoRA fine-tuning on a standard CPU for a 0.6B model is **not a real-time task**. 10 training steps can take **hours**, not minutes.
-4.  **No Mocking / No Placeholders:** We do not use "dummy" files to fake a completed pipeline. If the hardware fails or the process is too slow, the system will report it as a failure.
+## 🏗 Workflow: Separation of Concerns
 
-## 🏗 System Architecture
+### 1. Ingest (Rust-native) - [100% Ready]
+- **Tool**: `pki-ingest`
+- **Process**: Semantic chunking + LLM-driven QA generation.
+- **Hardware**: Any modern CPU.
 
-PKI employs a "Separation of Concerns" architecture:
+### 2. Internalization (Python/PyTorch) - [One-time Step]
+- **Tool**: `pki-trainer` (Orchestrating HF PEFT / Unsloth)
+- **Starting Point**: Raw BF16 Safetensors (1.15GB).
+- **Hardware**: **NVIDIA GPU (8GB+ VRAM)** or **Apple Silicon M-series**.
+- **Output**: Merged weights + Quantized GGUF.
 
-### Phase 1: Ingest (Rust/GGUF)
-- **Goal:** Parse documents and generate a high-quality QA dataset.
-- **Hardware:** Runs on any modern CPU. Memory < 800MB.
+### 3. Inference (Rust-native) - [100% Ready]
+- **Tool**: `pki-engine` (Pure Rust/Candle)
+- **Hardware**: Any CPU (AVX2/SIMD accelerated).
+- **Footprint**: < 800MB RAM, < 200ms cold start.
 
-### Phase 2: Internalization (Python/PyTorch/BF16)
-- **Goal:** Real LoRA fine-tuning to encode knowledge into weights.
-- **Hardware:** **GPU with 8GB+ VRAM highly recommended.**
-- **CPU Mode:** Possible but considered "Developer-only/Overnight" mode. Requires 10GB+ RAM and hours of execution time.
+## 🚦 Roadmap
 
-### Phase 3: Integration & Quantization (The Gap)
-- **Goal:** Merge LoRA weights and quantize back to GGUF for the Rust engine.
-- **Status:** Requires a functional `llama.cpp` toolchain or a successful Python-based export.
+| Version | Milestone | Status |
+| :--- | :--- | :--- |
+| **v0.2.x** | Pipeline POC + KV Cache + Auto-QA | ✅ Done |
+| **v0.3.0** | Professional documentation & Stable Python scripts | 🏗 In Progress |
+| **v1.0.0** | `ratatui` TUI + Single Binary distribution | 📅 Planned |
+| **v2.0.0** | Native CPU Fine-tuning (When tech matures) | 🔭 Future |
 
-### Phase 4: Inference (Rust/GGUF)
-- **Goal:** Fast, lightweight chat using the newly internalized model.
-
-## 📉 Project Status: Research & Development
-Current version (v0.2.2) is a proof-of-concept. It focuses on getting the pipeline structure right, but the **Internalization Step** is a high-cost operation that requires professional-grade hardware to see real results in real-time.
+## 🛡 Privacy & Sovereignty
+Everything stays local. Inference requires no internet. Your knowledge is truly yours, encoded into a model that only you own.
