@@ -1,42 +1,48 @@
 # PKI: Personal Knowledge Internalization
 
-**Build your second brain with extremely lightweight local models.**
+**Hybrid High-Performance Knowledge Internalization System**
 
-PKI is a Rust-native system designed to transform your unstructured data (PDFs, Markdown, etc.) into the internal weights of a tiny LLM (Qwen3-0.6B) via LoRA fine-tuning. Unlike RAG, PKI aims for true knowledge internalization.
+PKI is a research project designed to bridge the gap between heavy-duty model fine-tuning and lightweight local inference. It employs a "Separation of Concerns" architecture: high-precision training in Python and ultra-fast quantized inference in Rust.
 
-## 🚀 Why PKI?
+## 🚀 The PKI Philosophy
 
-- **True Internalization:** Knowledge is encoded into model weights, enabling cross-document reasoning and logical consistency.
-- **Rust-Powered Performance:** Built with pure Rust (`candle` & `tokio`). Cold start in <200ms with minimal memory footprint (<800MB).
-- **Privacy First:** 100% local. No data leaves your machine. No internet required for inference.
-- **Zero-Dependency Inference:** Single binary execution (Proof-of-Concept).
+Unlike RAG (Retrieval-Augmented Generation), which injects context into a prompt, PKI aims to **internalize** knowledge into model weights. This requires a rigorous multi-stage pipeline.
 
-## 🛠 Architecture
+## 🏗 Architecture & Workflow
 
-- **`pki-ingest`**: High-performance document parsing (PDF/MD) and semantic chunking.
-- **`pki-trainer`**: Orchestrates QLoRA training using Unsloth (via a managed Python environment).
-- **`pki-engine`**: A high-efficiency inference engine based on `candle-transformers` with KV Cache optimization.
-- **`pki-cli`**: Unified command-line interface for the entire pipeline.
+PKI operates on a clear boundary between training and runtime:
 
-## 🚦 Quick Start
+### 1. Training Phase (Heavyweight - Python/PyTorch)
+- **Engine:** PyTorch + Unsloth / PEFT.
+- **Weights:** Starts from **BF16 Original Weights** (not GGUF).
+- **Process:** LoRA Fine-tuning on user-generated datasets.
+- **Memory:** Requires ~5GB+ VRAM/RAM (not suitable for low-end mobile devices).
 
-### Prerequisites
-- [Rust](https://www.rust-lang.org/) (latest stable)
-- [uv](https://github.com/astral/uv) (for Python environment management)
-- NVIDIA GPU (Optional, for real training acceleration)
+### 2. Integration Phase (The Bridge)
+- **Merge:** Merging LoRA adapters back into the base BF16 weights.
+- **Quantization:** Converting the internalized model into **GGUF (Q8_0/Q4_K_M)** using `llama.cpp`.
 
-### Run the Pipeline
-To experience the end-to-end mock pipeline with hardware acceleration:
+### 3. Inference Phase (Lightweight - Rust/Candle)
+- **Engine:** Pure Rust (`candle`) based inference.
+- **Weights:** Optimized **GGUF** quantized models.
+- **Performance:** Cold start < 200ms, Memory footprint < 800MB.
 
-```powershell
-# Windows (PowerShell)
-$env:RUSTFLAGS="-C target-cpu=native"; cargo run --release -p pki-cli -- pipeline --file test.md --query "What is Knowledge Internalization?"
-```
+## 🛠 Project Modules
+
+- **`pki-ingest`**: Rust-native high-performance document parsing and QA dataset generation.
+- **`pki-trainer`**: Orchestrates the Python fine-tuning environment and export pipeline.
+- **`pki-engine`**: High-efficiency inference base optimized for GGUF.
+- **`pki-cli`**: Unified command-line interface for the end-to-end pipeline.
+
+## 🚦 Reality Check (Must Read)
+
+1. **No GGUF Fine-tuning:** Quantized formats are for inference only. You cannot calculate gradients on discrete weights.
+2. **Candle is for Inference:** Rust's `candle` framework is excellent for runtime but currently unsuitable for complex stable fine-tuning.
+3. **Hardware Split:** You need a decent machine (GPU recommended) for the **Internalization (Training)** step, but the **Usage (Inference)** step can run on any potato.
 
 ## 📈 Roadmap
 
-- [x] **v0.2.0**: End-to-end Pipeline POC (Rust CLI + Python Trainer).
-- [x] **Inference Optimization**: KV Cache support and SIMD acceleration.
-- [ ] **Real QA Generation**: Replace mock data with real LLM-generated QA pairs.
-- [ ] **On-device LoRA Merging**: Seamlessly merge adapters for zero-latency switching.
-- [ ] **TUI Dashboard**: A professional terminal UI for monitoring training and chat.
+- [x] **v0.2.1**: End-to-end pipeline orchestration.
+- [x] **Inference Optimization**: KV Cache support and SIMD acceleration in Rust.
+- [ ] **Automated Quantization Pipeline**: Seamless integration with `llama.cpp` for GGUF export.
+- [ ] **Remote Trainer Support**: Offload the heavy training to a GPU box while keeping inference local.
