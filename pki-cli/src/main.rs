@@ -108,8 +108,8 @@ async fn main() -> anyhow::Result<()> {
                 }
             };
 
-            println!("\n--- Step 2: Train ---");
-            let adapter_path = match train_lora(&dataset_path) {
+            println!("\n--- Step 2: Train & Merge (Pure Rust) ---");
+            let internalized_model_path = match train_lora(&dataset_path) {
                 Ok(path) => path,
                 Err(e) => {
                     eprintln!("Pipeline aborted at train: {}", e);
@@ -117,10 +117,9 @@ async fn main() -> anyhow::Result<()> {
                 }
             };
 
-            println!("\n--- Step 3: Chat ---");
-            let model = "Qwen3-0.6B-GGUF";
-            let (model_path, tokenizer_path) = get_or_download_model(model).await?;
-            if let Err(e) = chat(&model_path.to_string_lossy(), &tokenizer_path.to_string_lossy(), Some(&adapter_path), query) {
+            println!("\n--- Step 3: Chat with Internalized Knowledge ---");
+            let (_, tokenizer_path) = get_or_download_model("Qwen3-0.6B-GGUF").await?;
+            if let Err(e) = chat(&internalized_model_path, &tokenizer_path.to_string_lossy(), None, query) {
                 eprintln!("Pipeline aborted at chat: {:#?}", e);
             }
             
