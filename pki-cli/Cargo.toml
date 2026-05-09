@@ -1,0 +1,16 @@
+[package]
+name = "pki-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pki-ingest = { path = "../pki-ingest" }
+pki-trainer = { path = "../pki-trainer" }
+pki-engine = { path = "../pki-engine" }
+clap = { version = "4.5", features = ["derive"] }
+reqwest = { version = "0.12", features = ["stream", "rustls-tls", "default-tls"] }
+tokio = { version = "1.0", features = ["full"] }
+indicatif = "0.17"
+dirs = "5.0"
+anyhow = "1.0"
+futures-util = "0.3"

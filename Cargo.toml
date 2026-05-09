@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "pki-cli",
+    "pki-ingest",
+    "pki-trainer",
+    "pki-engine"
+]
+resolver = "2"

@@ -1,0 +1,13 @@
+[package]
+name = "pki-ingest"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.102"
+pdf-extract = "0.10.0"
+pulldown-cmark = "0.13.3"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+text-splitter = "0.30.1"
+
