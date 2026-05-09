@@ -63,7 +63,14 @@ async fn main() -> anyhow::Result<()> {
 
     match &cli.command {
         Commands::Ingest { file } => {
-            if let Err(e) = ingest_file(file) {
+            let (model_path, tokenizer_path) = get_or_download_model("Qwen3-0.6B-GGUF").await?;
+            let mut pki = pki_engine::PkiModel::new(&model_path.to_string_lossy(), &tokenizer_path.to_string_lossy())?;
+            
+            let mut generator = |prompt: &str| {
+                pki.generate(prompt, 256, true)
+            };
+
+            if let Err(e) = ingest_file(file, Some(&mut generator)) {
                 eprintln!("Ingest failed: {}", e);
             }
         }
@@ -84,12 +91,20 @@ async fn main() -> anyhow::Result<()> {
         Commands::Pipeline { file, query } => {
             println!("=== Starting E2E Mock Pipeline ===");
             
-            println!("\n--- Step 1: Ingest ---");
-            let dataset_path = match ingest_file(file) {
-                Ok(path) => path,
-                Err(e) => {
-                    eprintln!("Pipeline aborted at ingest: {}", e);
-                    return Ok(());
+            println!("\n--- Step 1: Ingest (Real QA Generation) ---");
+            let (model_path, tokenizer_path) = get_or_download_model("Qwen3-0.6B-GGUF").await?;
+            let mut pki = pki_engine::PkiModel::new(&model_path.to_string_lossy(), &tokenizer_path.to_string_lossy())?;
+            
+            let dataset_path = {
+                let mut generator = |prompt: &str| {
+                    pki.generate(prompt, 256, true)
+                };
+                match ingest_file(file, Some(&mut generator)) {
+                    Ok(path) => path,
+                    Err(e) => {
+                        eprintln!("Pipeline aborted at ingest: {}", e);
+                        return Ok(());
+                    }
                 }
             };
 
