@@ -2,47 +2,36 @@
 
 **Hybrid High-Performance Knowledge Internalization System**
 
-PKI is a research project designed to bridge the gap between heavy-duty model fine-tuning and lightweight local inference. It employs a "Separation of Concerns" architecture: high-precision training in Python and ultra-fast quantized inference in Rust.
+PKI is a project dedicated to exploring true knowledge internalization through model weight evolution. **Warning: This is a heavyweight engineering task.**
 
-## 🚀 The PKI Philosophy
+## 🚦 Brutal Reality Check
 
-Unlike RAG (Retrieval-Augmented Generation), which injects context into a prompt, PKI aims to **internalize** knowledge into model weights. This requires a rigorous multi-stage pipeline.
+Before running this project, you must understand the hardware and time costs associated with "Internalization" (Fine-tuning):
 
-## 🏗 Architecture & Workflow
+1.  **Training is NOT Inference:** While inference on a quantized Qwen3-0.6B takes <800MB RAM, **Training** (Fine-tuning) starts from BF16/FP32 weights and requires **10GB+ RAM/VRAM**.
+2.  **No GGUF Fine-tuning:** You cannot train on GGUF files. Period. Training starts from raw Safetensors.
+3.  **CPU Training is Extremely Slow:** Running a LoRA fine-tuning on a standard CPU for a 0.6B model is **not a real-time task**. 10 training steps can take **hours**, not minutes.
+4.  **No Mocking / No Placeholders:** We do not use "dummy" files to fake a completed pipeline. If the hardware fails or the process is too slow, the system will report it as a failure.
 
-PKI operates on a clear boundary between training and runtime:
+## 🏗 System Architecture
 
-### 1. Training Phase (Heavyweight - Python/PyTorch)
-- **Engine:** PyTorch + Unsloth / PEFT.
-- **Weights:** Starts from **BF16 Original Weights** (not GGUF).
-- **Process:** LoRA Fine-tuning on user-generated datasets.
-- **Memory:** Requires ~5GB+ VRAM/RAM (not suitable for low-end mobile devices).
+PKI employs a "Separation of Concerns" architecture:
 
-### 2. Integration Phase (The Bridge)
-- **Merge:** Merging LoRA adapters back into the base BF16 weights.
-- **Quantization:** Converting the internalized model into **GGUF (Q8_0/Q4_K_M)** using `llama.cpp`.
+### Phase 1: Ingest (Rust/GGUF)
+- **Goal:** Parse documents and generate a high-quality QA dataset.
+- **Hardware:** Runs on any modern CPU. Memory < 800MB.
 
-### 3. Inference Phase (Lightweight - Rust/Candle)
-- **Engine:** Pure Rust (`candle`) based inference.
-- **Weights:** Optimized **GGUF** quantized models.
-- **Performance:** Cold start < 200ms, Memory footprint < 800MB.
+### Phase 2: Internalization (Python/PyTorch/BF16)
+- **Goal:** Real LoRA fine-tuning to encode knowledge into weights.
+- **Hardware:** **GPU with 8GB+ VRAM highly recommended.**
+- **CPU Mode:** Possible but considered "Developer-only/Overnight" mode. Requires 10GB+ RAM and hours of execution time.
 
-## 🛠 Project Modules
+### Phase 3: Integration & Quantization (The Gap)
+- **Goal:** Merge LoRA weights and quantize back to GGUF for the Rust engine.
+- **Status:** Requires a functional `llama.cpp` toolchain or a successful Python-based export.
 
-- **`pki-ingest`**: Rust-native high-performance document parsing and QA dataset generation.
-- **`pki-trainer`**: Orchestrates the Python fine-tuning environment and export pipeline.
-- **`pki-engine`**: High-efficiency inference base optimized for GGUF.
-- **`pki-cli`**: Unified command-line interface for the end-to-end pipeline.
+### Phase 4: Inference (Rust/GGUF)
+- **Goal:** Fast, lightweight chat using the newly internalized model.
 
-## 🚦 Reality Check (Must Read)
-
-1. **No GGUF Fine-tuning:** Quantized formats are for inference only. You cannot calculate gradients on discrete weights.
-2. **Candle is for Inference:** Rust's `candle` framework is excellent for runtime but currently unsuitable for complex stable fine-tuning.
-3. **Hardware Split:** You need a decent machine (GPU recommended) for the **Internalization (Training)** step, but the **Usage (Inference)** step can run on any potato.
-
-## 📈 Roadmap
-
-- [x] **v0.2.1**: End-to-end pipeline orchestration.
-- [x] **Inference Optimization**: KV Cache support and SIMD acceleration in Rust.
-- [ ] **Automated Quantization Pipeline**: Seamless integration with `llama.cpp` for GGUF export.
-- [ ] **Remote Trainer Support**: Offload the heavy training to a GPU box while keeping inference local.
+## 📉 Project Status: Research & Development
+Current version (v0.2.2) is a proof-of-concept. It focuses on getting the pipeline structure right, but the **Internalization Step** is a high-cost operation that requires professional-grade hardware to see real results in real-time.

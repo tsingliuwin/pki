@@ -1,0 +1,11 @@
+unsloth
+trl
+transformers
+datasets
+accelerate
+bitsandbytes
+sentencepiece
+xformers
+torch
+torchvision
+torchaudio
