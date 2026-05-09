@@ -76,8 +76,8 @@ async fn main() -> anyhow::Result<()> {
             get_or_download_model(model).await?;
         }
         Commands::Chat { model, adapter, query } => {
-            let model_path = get_or_download_model(model).await?;
-            if let Err(e) = chat(&model_path.to_string_lossy(), adapter.as_deref(), query) {
+            let (model_path, tokenizer_path) = get_or_download_model(model).await?;
+            if let Err(e) = chat(&model_path.to_string_lossy(), &tokenizer_path.to_string_lossy(), adapter.as_deref(), query) {
                 eprintln!("Chat failed: {}", e);
             }
         }
@@ -104,8 +104,8 @@ async fn main() -> anyhow::Result<()> {
 
             println!("\n--- Step 3: Chat ---");
             let model = "Qwen3-0.6B-GGUF";
-            let model_path = get_or_download_model(model).await?;
-            if let Err(e) = chat(&model_path.to_string_lossy(), Some(&adapter_path), query) {
+            let (model_path, tokenizer_path) = get_or_download_model(model).await?;
+            if let Err(e) = chat(&model_path.to_string_lossy(), &tokenizer_path.to_string_lossy(), Some(&adapter_path), query) {
                 eprintln!("Pipeline aborted at chat: {}", e);
             }
             

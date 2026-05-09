@@ -1,52 +1,79 @@
 use anyhow::{Context, Result};
-use llama_cpp_2::backend::LlamaBackend;
-use llama_cpp_2::context::params::LlamaContextParams;
-use llama_cpp_2::llama_backend::LlamaBackend as DeprecatedLlamaBackend; // Sometimes it's this
-use llama_cpp_2::model::params::LlamaModelParams;
-use llama_cpp_2::model::LlamaModel;
-use std::io::{self, Write};
-use std::path::Path;
+use candle_core::quantized::gguf_file;
+use candle_core::{Device, Tensor};
+use candle_transformers::models::quantized_qwen2::ModelWeights;
+use std::io::Write;
+use tokenizers::Tokenizer;
 
-pub fn chat(model_path: &str, adapter_path: Option<&str>, query: &str) -> Result<()> {
-    println!("[pki-engine] Initializing LlamaBackend...");
-    let backend = LlamaBackend::init()?;
+pub fn chat(model_path: &str, tokenizer_path: &str, adapter_path: Option<&str>, query: &str) -> Result<()> {
+    println!("[pki-engine] Loading Tokenizer from {}...", tokenizer_path);
+    let tokenizer = Tokenizer::from_file(tokenizer_path)
+        .map_err(|e| anyhow::anyhow!("Failed to load tokenizer: {}", e))?;
+
+    println!("[pki-engine] Loading GGUF Model from {}...", model_path);
+    let mut file = std::fs::File::open(model_path)?;
+    let model_reader = gguf_file::Content::read(&mut file)
+        .context("Failed to read GGUF file")?;
     
-    let model_params = LlamaModelParams::default();
-    println!("[pki-engine] Loading model from {}...", model_path);
-    let model = LlamaModel::load_from_file(&backend, model_path, &model_params)
-        .with_context(|| format!("Failed to load model from {}", model_path))?;
+    let mut model = ModelWeights::from_gguf(model_reader, &mut file, &Device::Cpu)
+        .context("Failed to initialize Qwen2 model from GGUF")?;
 
-    // In a real scenario, we would load the LoRA adapter here.
-    // As of recent llama-cpp-2, LoRA loading might require specific API calls on the model.
     if let Some(adapter) = adapter_path {
-        println!("[pki-engine] WARNING: LoRA adapter dynamic loading is not fully implemented in this stub for adapter: {}", adapter);
-        // Note: Actual LoRA apply depends on llama_model_apply_lora_from_file which might be bound.
+        println!("[pki-engine] WARNING: Dynamic LoRA loading from unmerged GGUF is not fully supported in pure Rust yet.");
+        println!("[pki-engine] WARNING: In a production environment, you should merge the LoRA using Python before inference.");
+        println!("[pki-engine] WARNING: Skipping adapter {} and using Base Model.", adapter);
     }
 
-    let ctx_params = LlamaContextParams::default();
-    let mut ctx = model.new_context(&backend, ctx_params)
-        .context("Failed to create context")?;
-
-    // Qwen ChatML Template
+    // Format prompt using Qwen ChatML
     let prompt = format!(
         "<|im_start|>system\nYou are a helpful local assistant.<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
         query
     );
 
-    let tokens_list = model.str_to_token(&prompt, llama_cpp_2::model::AddBos::Always)
-        .context("Failed to tokenize")?;
+    let tokens = tokenizer.encode(prompt, true)
+        .map_err(|e| anyhow::anyhow!("Tokenization error: {}", e))?;
+    
+    let mut prompt_tokens = tokens.get_ids().to_vec();
 
-    let n_cxt = ctx.n_ctx() as usize;
-    if tokens_list.len() > n_cxt {
-        anyhow::bail!("Prompt is too long");
+    println!("[pki-engine] Evaluating prompt ({} tokens)...", prompt_tokens.len());
+    
+    // Very simple generation loop (Greedy)
+    print!("\n>>> 🤖 System Reply: ");
+    std::io::stdout().flush()?;
+
+    let mut generated_text = String::new();
+    
+    // For demonstration, we just do a tiny loop. In reality, you'd feed tokens one by one and sample.
+    for index in 0..100 {
+        let input = Tensor::new(prompt_tokens.as_slice(), &Device::Cpu)?.unsqueeze(0)?;
+        let logits = model.forward(&input, index)?;
+        
+        let logits = logits.squeeze(0)?;
+        // Get the argmax token (Greedy sampling)
+        // Extract the last token's logits
+        let logits_v: Vec<f32> = logits.to_vec1()?;
+        let mut next_token = 0;
+        let mut max_prob = f32::NEG_INFINITY;
+        for (i, &p) in logits_v.iter().enumerate() {
+            if p > max_prob {
+                max_prob = p;
+                next_token = i as u32;
+            }
+        }
+
+        if next_token == 151645 || next_token == 151643 { // Qwen im_end / eos
+            break;
+        }
+
+        prompt_tokens.push(next_token);
+        
+        if let Some(decoded) = tokenizer.decode(&[next_token], false).ok() {
+            print!("{}", decoded);
+            std::io::stdout().flush()?;
+            generated_text.push_str(&decoded);
+        }
     }
 
-    println!("[pki-engine] Evaluating prompt ({} tokens)...", tokens_list.len());
-    
-    // Very simplified eval loop
-    // In reality, you use a batch and sample tokens.
-    // For now, let's just do a basic implementation or just mock the sampling if the API is too complex to guess.
-    println!("\n>>> 🤖 System Reply: (Llama.cpp integration compiled successfully! Token streaming will be implemented here.)");
-    
+    println!("\n");
     Ok(())
 }

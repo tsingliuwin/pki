@@ -5,51 +5,20 @@ use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-/// Resolves the model name to a ModelScope download URL and local filename.
-/// We use Qwen2.5-0.5B-Instruct as the practical placeholder for "Qwen3-0.6B-Instruct".
-fn resolve_model_info(model_name: &str) -> (String, String) {
-    if model_name.contains("Qwen3-0.6B") || model_name.contains("Qwen2.5-0.5B") {
-        let repo = "qwen/Qwen2.5-0.5B-Instruct-GGUF";
-        let file = "qwen2.5-0.5b-instruct-q4_k_m.gguf";
-        let url = format!(
-            "https://modelscope.cn/api/v1/models/{}/repo?Revision=master&FilePath={}",
-            repo, file
-        );
-        (url, file.to_string())
-    } else {
-        // Fallback for custom HF/ModelScope links or local paths
-        (String::new(), model_name.to_string())
-    }
-}
-
-pub async fn get_or_download_model(model_name: &str) -> Result<PathBuf> {
-    let pki_dir = dirs::home_dir()
-        .context("Could not find home directory")?
-        .join(".pki")
-        .join("models");
-
-    std::fs::create_dir_all(&pki_dir).context("Failed to create models directory")?;
-
-    let (url, filename) = resolve_model_info(model_name);
-    let local_path = pki_dir.join(&filename);
-
+/// Download a file from a URL to a local path with a progress bar.
+async fn download_file(url: &str, local_path: &Path, filename: &str) -> Result<()> {
     if local_path.exists() {
-        println!("[Downloader] Model {} already exists at {:?}", filename, local_path);
-        return Ok(local_path);
+        println!("[Downloader] {} already exists at {:?}", filename, local_path);
+        return Ok(());
     }
 
-    if url.is_empty() {
-        anyhow::bail!("Unsupported model name for automatic download. Please provide a local path.");
-    }
-
-    println!("[Downloader] Downloading model from ModelScope...");
-    println!("[Downloader] Target: {}", url);
-
+    println!("[Downloader] Downloading {} from ModelScope...", filename);
+    
     let client = reqwest::Client::new();
-    let res = client.get(&url).send().await.context("Failed to send request")?;
+    let res = client.get(url).send().await.context("Failed to send request")?;
 
     if !res.status().is_success() {
-        anyhow::bail!("Failed to download model: HTTP {}", res.status());
+        anyhow::bail!("Failed to download {}: HTTP {}", filename, res.status());
     }
 
     let total_size = res
@@ -74,7 +43,34 @@ pub async fn get_or_download_model(model_name: &str) -> Result<PathBuf> {
     }
 
     pb.finish_with_message("Download complete");
-    println!("[Downloader] Model saved to {:?}", local_path);
+    println!("[Downloader] {} saved to {:?}", filename, local_path);
+    Ok(())
+}
 
-    Ok(local_path)
+/// Returns (GGUF Path, Tokenizer Path)
+pub async fn get_or_download_model(model_name: &str) -> Result<(PathBuf, PathBuf)> {
+    let pki_dir = dirs::home_dir()
+        .context("Could not find home directory")?
+        .join(".pki")
+        .join("models");
+
+    std::fs::create_dir_all(&pki_dir).context("Failed to create models directory")?;
+
+    // Hardcode fallback mapping
+    let repo = "qwen/Qwen2.5-0.5B-Instruct-GGUF";
+    let gguf_filename = "qwen2.5-0.5b-instruct-q4_k_m.gguf";
+    let tokenizer_filename = "tokenizer.json";
+    
+    // We fetch tokenizer from the non-GGUF repo because GGUF repos sometimes don't have it exposed easily.
+    // Actually Qwen2.5 GGUF repos often just have the `.gguf`. We fetch tokenizer from `qwen/Qwen2.5-0.5B-Instruct`.
+    let gguf_url = format!("https://modelscope.cn/api/v1/models/{}/repo?Revision=master&FilePath={}", repo, gguf_filename);
+    let tokenizer_url = "https://modelscope.cn/api/v1/models/qwen/Qwen2.5-0.5B-Instruct/repo?Revision=master&FilePath=tokenizer.json";
+
+    let gguf_path = pki_dir.join(gguf_filename);
+    let tokenizer_path = pki_dir.join(tokenizer_filename);
+
+    download_file(&gguf_url, &gguf_path, gguf_filename).await?;
+    download_file(&tokenizer_url, &tokenizer_path, tokenizer_filename).await?;
+
+    Ok((gguf_path, tokenizer_path))
 }
