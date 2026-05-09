@@ -26,7 +26,7 @@ pub fn train_lora(dataset_path: &str) -> Result<String> {
     // 2. Spawn the Python process, piping stdout and stderr
     let mut child = Command::new(&python_exe)
         .arg(&script_path)
-        .arg("qwen/Qwen2.5-0.5B-Instruct") // Base model hardcoded for now
+        .arg("Qwen/Qwen3-0.6B-Instruct") // Base model hardcoded for now
         .arg(dataset_path)
         .arg(&output_dir)
         .stdout(Stdio::piped())
